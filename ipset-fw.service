@@ -1,0 +1,14 @@
+[Unit]
+Description=update ipsets
+Wants=network-online.target
+After=network.target network-online.target ipset.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Nice=19
+IOSchedulingClass=2
+IOSchedulingPriority=7
+ExecStart=/usr/local/sbin/ipset-fw /etc/ipset-fw/ipset-fw.conf
+
+[Install]
+WantedBy=multi-user.target
