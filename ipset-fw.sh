@@ -94,7 +94,7 @@ done
 ## extract ip4 adresses
 #sed -r -e '/^(0\.0\.0\.0|10\.|127\.|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[0-1]\.|192\.168\.|22[4-9]\.|23[0-9]\.)/d' "$IPSET_NAME$TMP_PFIX"|sort -n|sort -mu >| "$IP_LIST"
 sed -r -e '/^(0\.0\.0\.0|127\.0\.0\.1)/d' "$TMP_LIST_FILE"|sort -n|sort -mu >| "$IP_LIST"
-#rm -f "$TMP_LIST_FILE"
+rm -f "$TMP_LIST_FILE"
 
 cat >> "$IPSET_RESTORE" <<EOF
 create $IPSET_NAME$TMP_PFIX -exist hash:net family inet hashsize ${HASHSIZE:-16384} maxelem ${MAXELEM:-65536}
