@@ -24,6 +24,11 @@ if [[ ! -d $(dirname "$IP_BLACKLIST") || ! -d $(dirname "$IP_WHITELIST") || ! -d
     exit 1
 fi
 
+if [[ -n "$DEBUG" ]]; then
+    echo "DEBUG='$DEBUG'"
+    set -ex
+fi
+
 # create the ipset if needed (or abort if does not exists and FORCE=no)
 function create_ipset(){
 IPSET_NAME=${1}
@@ -47,21 +52,46 @@ create_ipset $IPSET_WHITELIST_NAME
 function create_iptables(){
 IPSET_NAME=${1}
 ACTION=${2}
-if ! iptables -nvL INPUT|command grep -q "match-set $IPSET_NAME"; then
-    # we may also have assumed that INPUT rule n°1 is about packets statistics (traffic monitoring)
+
+if ! iptables -nvL ipset-fw 2>&1 | command grep -q 'ipset-fw'; then
     if [[ ${FORCE:-no} != yes ]]; then
-        echo >&2 "Error: iptables does not have the needed ipset INPUT rule, add it using:"
-        echo >&2 "# iptables -I INPUT ${IPTABLES_IPSET_RULE_NUMBER:-1} -m set --match-set $IPSET_NAME src -j $ACTION"
+        echo >&2 "Error: iptables does not have the needed ipset-f chain, add it using:"
+        echo >&2 "# iptables -N ipset-fw"
         exit 1
     fi
-    if ! iptables -I INPUT "${IPTABLES_IPSET_RULE_NUMBER:-1}" -m set --match-set "$IPSET_NAME" src -j $ACTION; then
-        echo >&2 "Error: while adding the --match-set $IPSET_NAME ipset rule to iptables"
+    if ! iptables -N ipset-fw; then
+        echo >&2 "Error: while adding the ipset-fw chain."
         exit 1
     fi
 fi
+if ! iptables -nvL ipset-fw 2>&1 | command grep -q "match-set $IPSET_NAME"; then
+    if [[ ${FORCE:-no} != yes ]]; then
+        echo >&2 "Error: iptables does not have the needed ipset INPUT rule, add it using:"
+        echo >&2 "# iptables -I ipset-fw 1 -m set --match-set $IPSET_NAME src -j $ACTION"
+        exit 1
+    fi
+    if ! iptables -I ipset-fw 1 -m set --match-set "$IPSET_NAME" src -j $ACTION; then
+        echo >&2 "Error: while adding the --match-set $IPSET_NAME ipset rule to iptables ipset-fw chain"
+        exit 1
+    fi
+fi
+
+if ! iptables -nvL INPUT 2>&1 | command grep -q "ipset-fw"; then
+    # we may also have assumed that INPUT rule n°1 is about packets statistics (traffic monitoring)
+    if [[ ${FORCE:-no} != yes ]]; then
+        echo >&2 "Error: iptables does not have the needed ipset-fw INPUT rule, add it using:"
+        echo >&2 "# iptables -I INPUT ${IPTABLES_IPSET_RULE_NUMBER:-1} -j ipset-fw"
+        exit 1
+    fi
+    if ! iptables -I INPUT "${IPTABLES_IPSET_RULE_NUMBER:-1}" -j ipset-fw; then
+        echo >&2 "Error: while adding the INPUT ipset-fw rule to iptables"
+        exit 1
+    fi
+fi
+
 }
 create_iptables $IPSET_BLACKLIST_NAME "DROP"
-create_iptables $IPSET_WHITELIST_NAME "ACCEPT"
+create_iptables $IPSET_WHITELIST_NAME "RETURN"
 
 # fetch lists and add them to ipsets
 function fetch_lists(){
@@ -93,8 +123,8 @@ done
 
 ## extract ip4 adresses
 #sed -r -e '/^(0\.0\.0\.0|10\.|127\.|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[0-1]\.|192\.168\.|22[4-9]\.|23[0-9]\.)/d' "$IPSET_NAME$TMP_PFIX"|sort -n|sort -mu >| "$IP_LIST"
-sed -r -e '/^(0\.0\.0\.0|127\.0\.0\.1)/d' "$TMP_LIST_FILE"|sort -n|sort -mu >| "$IP_LIST"
-#rm -f "$TMP_LIST_FILE"
+sed -r -e '/^(0\.0\.0\.0)/d' "$TMP_LIST_FILE"|sort -n|sort -mu >| "$IP_LIST"
+rm -f "$TMP_LIST_FILE"
 
 cat >> "$IPSET_RESTORE" <<EOF
 create $IPSET_NAME$TMP_PFIX -exist hash:net family inet hashsize ${HASHSIZE:-16384} maxelem ${MAXELEM:-65536}
