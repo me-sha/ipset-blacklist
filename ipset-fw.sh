@@ -3,13 +3,17 @@
 # usage ipset-fw.sh <configuration file>
 # eg: ipset-fw.sh /etc/ipset-fw/ipset-fw.conf
 #
-
-if [[ -z "$1" ]]; then
-    echo "Error: please specify a configuration file, e.g. $0 /etc/ipset-fw/ipset-fw.conf"
+CONFIG_FILE="/etc/ipset-fw/ipset-fw.conf"
+if [[ ! -z "$1" ]]; then
+    CONFIG_FILE="$1"
+fi
+if [[ ! -e "$CONFIG_FILE" ]]; then
+    echo "Error: please provife a configuration file at '/etc/ipset-fw/ipset-fw.conf' " \
+         "or as argument e.g $0 /path/to/ipset-fw.conf"
     exit 1
 fi
 
-if ! source "$1"; then
+if ! source "$CONFIG_FILE"; then
     echo "Error: can't load configuration file $2"
     exit 1
 fi
@@ -123,7 +127,8 @@ done
 
 ## extract ip4 adresses
 #sed -r -e '/^(0\.0\.0\.0|10\.|127\.|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[0-1]\.|192\.168\.|22[4-9]\.|23[0-9]\.)/d' "$IPSET_NAME$TMP_PFIX"|sort -n|sort -mu >| "$IP_LIST"
-sed -r -e '/^(0\.0\.0\.0)/d' "$TMP_LIST_FILE"|sort -n|sort -mu >| "$IP_LIST"
+cat "$TMP_LIST_FILE"|sort -n|sort -mu >| "$IP_LIST"
+
 rm -f "$TMP_LIST_FILE"
 
 cat >> "$IPSET_RESTORE" <<EOF
@@ -151,6 +156,5 @@ ipset save > /etc/ipset.conf
 if [[ ${VERBOSE:-no} == yes ]]; then
     echo
     echo "Number of blacklisted IP/networks found: `wc -l $IP_BLACKLIST | cut -d' ' -f1`"
-    echo
-    echo "Number whitelisted IP/networks found: `wc -l $IP_WHITELIST | cut -d' ' -f1`"
+    echo "Number of whitelisted IP/networks found: `wc -l $IP_WHITELIST | cut -d' ' -f1`"
 fi
