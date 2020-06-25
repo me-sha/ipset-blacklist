@@ -8,8 +8,8 @@ if [[ ! -z "$1" ]]; then
     CONFIG_FILE="$1"
 fi
 if [[ ! -e "$CONFIG_FILE" ]]; then
-    echo "Error: please provife a configuration file at '/etc/ipset-fw/ipset-fw.conf' " \
-         "or as argument e.g $0 /path/to/ipset-fw.conf"
+    echo "Error: please provide a configuration file at the default path: '/etc/ipset-fw/ipset-fw.conf'" \
+         "or as an argument e.g.: $0 /path/to/ipset-fw.conf"
     exit 1
 fi
 
@@ -27,6 +27,8 @@ if [[ ! -d $(dirname "$IP_BLACKLIST") || ! -d $(dirname "$IP_WHITELIST") || ! -d
     echo >&2 "Error: missing directory(s): $(dirname "$IP_BLACKLIST" "$IP_WHITELIST" "$IPSET_RESTORE"|sort -u)"
     exit 1
 fi
+
+touch $IP_BLACKLIST $IP_WHITELIST
 
 if [[ -n "$DEBUG" ]]; then
     echo "DEBUG='$DEBUG'"
